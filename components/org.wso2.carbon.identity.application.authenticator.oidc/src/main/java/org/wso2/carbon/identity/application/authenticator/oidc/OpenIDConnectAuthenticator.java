@@ -583,12 +583,13 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                         .tokenLocation(tokenEndPoint).setGrantType(GrantType.AUTHORIZATION_CODE)
                         .setClientId(clientId).setRedirectURI(callbackUrl).setCode(authzResponse.getCode());
 
-                if (!clientSecret.equalsIgnoreCase(OIDCAuthenticatorConstants.CLIENT_SECRET_MTLS))
+                log.debug("Client Secret >>> [" + clientSecret + "]");
+                if (!clientSecret.startsWith(OIDCAuthenticatorConstants.CLIENT_SECRET_MTLS))
                     tokenRequestBuilder.setClientSecret(clientSecret);
 
                 accessTokenRequest = tokenRequestBuilder.buildBodyMessage();
 
-                if (clientSecret.equalsIgnoreCase(OIDCAuthenticatorConstants.CLIENT_SECRET_MTLS)) {
+                if (clientSecret.startsWith(OIDCAuthenticatorConstants.CLIENT_SECRET_MTLS)) {
                     log.info("Authenticating via mTLS");
                     String publicKey = this.getCertPublicKey(context, clientId);
                     log.debug("Certificate >>> " + publicKey);
