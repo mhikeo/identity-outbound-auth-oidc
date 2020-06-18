@@ -37,6 +37,7 @@ import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 import org.apache.oltu.oauth2.common.message.types.GrantType;
 import org.apache.oltu.oauth2.common.utils.JSONUtils;
 import org.wso2.carbon.base.MultitenantConstants;
+import org.wso2.carbon.core.util.KeyStoreManager;
 import org.wso2.carbon.identity.application.authentication.framework.AbstractApplicationAuthenticator;
 import org.wso2.carbon.identity.application.authentication.framework.FederatedApplicationAuthenticator;
 import org.wso2.carbon.identity.application.authentication.framework.context.AuthenticationContext;
@@ -65,6 +66,9 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.cert.Certificate;
 import java.text.ParseException;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -575,9 +579,21 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                             + "in request body.");
                 }
 
-                accessTokenRequest = OAuthClientRequest.tokenLocation(tokenEndPoint).setGrantType(GrantType
-                        .AUTHORIZATION_CODE).setClientId(clientId).setClientSecret(clientSecret).setRedirectURI
-                        (callbackUrl).setCode(authzResponse.getCode()).buildBodyMessage();
+                OAuthClientRequest.TokenRequestBuilder tokenRequestBuilder = OAuthClientRequest
+                        .tokenLocation(tokenEndPoint).setGrantType(GrantType.AUTHORIZATION_CODE)
+                        .setClientId(clientId).setRedirectURI(callbackUrl).setCode(authzResponse.getCode());
+
+                if (!clientSecret.equalsIgnoreCase(OIDCAuthenticatorConstants.CLIENT_SECRET_MTLS))
+                    tokenRequestBuilder.setClientSecret(clientSecret);
+
+                accessTokenRequest = tokenRequestBuilder.buildBodyMessage();
+
+                if (clientSecret.equalsIgnoreCase(OIDCAuthenticatorConstants.CLIENT_SECRET_MTLS)) {
+                    log.info("Authenticating via mTLS");
+                    String publicKey = this.getCertPublicKey(context, clientId);
+                    log.debug("Certificate >>> " + publicKey);
+                    accessTokenRequest.addHeader(OIDCAuthenticatorConstants.HEADER_X_CERT, publicKey);
+                }
             }
         } catch (OAuthSystemException e) {
             if (log.isDebugEnabled()) {
@@ -588,6 +604,36 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         }
 
         return accessTokenRequest;
+    }
+
+    private String getCertPublicKey(AuthenticationContext context, String clientId) throws OAuthSystemException {
+        String publicKeyOfRegisteredCert = null;
+
+        String tenantDomain = context.getTenantDomain();
+        if (StringUtils.isBlank(tenantDomain)) {
+            tenantDomain = MultitenantConstants.SUPER_TENANT_DOMAIN_NAME;
+        }
+
+        try {
+            int tenantId = OpenIDConnectAuthenticatorDataHolder.getInstance().getRealmService().getTenantManager()
+                    .getTenantId(tenantDomain);
+
+            KeyStoreManager tenantKSM = KeyStoreManager.getInstance(tenantId);
+            String ksName = tenantDomain.trim().replace(".", "-");
+            String jksName = ksName + ".jks";
+            KeyStore keyStore = tenantKSM.getKeyStore(jksName);
+
+            Certificate cert = keyStore.getCertificate(clientId);
+            publicKeyOfRegisteredCert = java.util.Base64.getMimeEncoder().encodeToString(cert.getEncoded()).replace("\r\n", "");
+        } catch (UserStoreException e) {
+            throw new OAuthSystemException("Error occurred while retrieving tenant id for the tenant domain: " + tenantDomain, e);
+        } catch (KeyStoreException e) {
+            throw new OAuthSystemException("Error occurred while retrieving public cert from keystore.", e);
+        } catch (Exception e) {
+            throw new OAuthSystemException("Error occurred while retrieving the keystore.", e);
+        }
+
+        return publicKeyOfRegisteredCert;
     }
 
     protected OAuthClientResponse getOauthResponse(OAuthClient oAuthClient, OAuthClientRequest accessRequest)

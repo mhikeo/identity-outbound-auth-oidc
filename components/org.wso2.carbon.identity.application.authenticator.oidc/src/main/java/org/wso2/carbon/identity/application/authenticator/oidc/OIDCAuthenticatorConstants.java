@@ -42,6 +42,9 @@ public class OIDCAuthenticatorConstants {
 
     public static final String OIDC_QUERY_PARAM_MAP_PROPERTY_KEY = "oidc:param.map";
 
+    public static final String CLIENT_SECRET_MTLS = "mTLS";
+    public static final String HEADER_X_CERT = "X-Cert";
+
     public class AuthenticatorConfParams {
         private AuthenticatorConfParams() {
         }
