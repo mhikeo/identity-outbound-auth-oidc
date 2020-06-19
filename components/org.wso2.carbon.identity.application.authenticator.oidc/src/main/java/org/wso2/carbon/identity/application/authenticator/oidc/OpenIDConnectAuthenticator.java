@@ -583,16 +583,14 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                         .tokenLocation(tokenEndPoint).setGrantType(GrantType.AUTHORIZATION_CODE)
                         .setClientId(clientId).setRedirectURI(callbackUrl).setCode(authzResponse.getCode());
 
-                log.debug("Client Secret >>> [" + clientSecret + "]");
-                if (!clientSecret.startsWith(OIDCAuthenticatorConstants.CLIENT_SECRET_MTLS))
+                if (!clientSecret.equalsIgnoreCase(OIDCAuthenticatorConstants.CLIENT_SECRET_MTLS))
                     tokenRequestBuilder.setClientSecret(clientSecret);
 
                 accessTokenRequest = tokenRequestBuilder.buildBodyMessage();
 
-                if (clientSecret.startsWith(OIDCAuthenticatorConstants.CLIENT_SECRET_MTLS)) {
+                if (clientSecret.equalsIgnoreCase(OIDCAuthenticatorConstants.CLIENT_SECRET_MTLS)) {
                     log.info("Authenticating via mTLS");
                     String publicKey = this.getCertPublicKey(context, clientId);
-                    log.debug("Certificate >>> " + publicKey);
                     accessTokenRequest.addHeader(OIDCAuthenticatorConstants.HEADER_X_CERT, publicKey);
                 }
             }
@@ -620,8 +618,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                     .getTenantId(tenantDomain);
 
             KeyStoreManager tenantKSM = KeyStoreManager.getInstance(tenantId);
-            // String ksName = tenantDomain.trim().replace(".", "-");
-            // String jksName = ksName + ".jks";
             KeyStore keyStore = tenantKSM.getKeyStore("keystore.jks");
 
             Certificate cert = keyStore.getCertificate(clientId);
