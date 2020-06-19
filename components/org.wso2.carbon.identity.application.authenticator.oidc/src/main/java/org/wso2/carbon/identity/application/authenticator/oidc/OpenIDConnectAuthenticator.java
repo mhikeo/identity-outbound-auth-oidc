@@ -620,9 +620,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                     .getTenantId(tenantDomain);
 
             KeyStoreManager tenantKSM = KeyStoreManager.getInstance(tenantId);
-            String ksName = tenantDomain.trim().replace(".", "-");
-            String jksName = ksName + ".jks";
-            KeyStore keyStore = tenantKSM.getKeyStore(jksName);
+            // String ksName = tenantDomain.trim().replace(".", "-");
+            // String jksName = ksName + ".jks";
+            KeyStore keyStore = tenantKSM.getKeyStore("keystore.jks");
 
             Certificate cert = keyStore.getCertificate(clientId);
             publicKeyOfRegisteredCert = java.util.Base64.getMimeEncoder().encodeToString(cert.getEncoded()).replace("\r\n", "");
